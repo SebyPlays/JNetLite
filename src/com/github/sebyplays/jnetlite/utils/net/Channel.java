@@ -6,6 +6,7 @@ import com.github.sebyplays.jnetlite.events.server.ServerPacketReceivedEvent;
 import com.github.sebyplays.jnetlite.utils.ClientHandler;
 import com.github.sebyplays.jnetlite.utils.io.Packet;
 import com.github.sebyplays.jnetlite.utils.io.Packets;
+import com.github.sebyplays.jnetlite.utils.net.server.JNetServer;
 import com.github.sebyplays.logmanager.api.LogManager;
 import com.github.sebyplays.logmanager.api.LogType;
 import lombok.Getter;
@@ -23,18 +24,19 @@ public class Channel extends Thread implements Serializable {
     @Getter
     private UUID uuid;
     @Getter @Setter private String channelName;
+    @Getter private boolean isAuthenticated = false;
     @Getter transient private Socket socket;
     @Getter transient private ObjectOutputStream objectOutputStream;
     @Getter transient private ObjectInputStream objectInputStream;
+    @Getter private int clientId;
 
     @SneakyThrows
-    public Channel(Socket socket, UUID uuid){
+    public Channel(Socket socket, UUID uuid, int id){
         this.uuid = uuid;
+        this.clientId = id;
         this.channelName = "ch-" + getUuid();
         this.setName(channelName);
-        System.out.println("c1");
         this.socket = socket;
-        System.out.println("c2");
         this.socket.setKeepAlive(true);
         this.objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
         LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Channel " + getName() + " OutputStream Initialized", true, false, true ,true);
@@ -52,15 +54,24 @@ public class Channel extends Thread implements Serializable {
     public void run() {
         LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Channel " + getName() + " starting..", true, false, true ,true);
         Packet packet = null;
-        while((packet = read()) != null){
+        LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Channel " + getName() + " awaiting authentication..", true, false, true ,true);
+        if(!JNetServer.getAuth().equals(null) && !isAuthenticated){
+            if(read().getAdditional().equals(JNetServer.getAuth())){
+                isAuthenticated = true;
+                sendPacketNoCallback(new Packet("auth", JNetServer.getAuth()));
+                LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Authentication successful!", true, false, true ,true);
+            } else {
+                LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Authentication not successful! closing!", true, false, true ,true);
+                socket.close();
+            }
+        }
+        while(!socket.isClosed() && (packet = read()) != null){
             if(packet.getAdditional().equals("CLIENT_CLOSE_PACKET")){
-                disconnect();
                 break;
             }
             new JEvent(new ServerPacketReceivedEvent(getChannelInstance(), packet)).callEvent();
         }
-        socket.close();
-        ClientHandler.channels.remove(this);
+        disconnect();
         new JEvent(new ClientDisconnectedEvent(getChannelInstance())).callEvent();
     }
 
@@ -70,17 +81,17 @@ public class Channel extends Thread implements Serializable {
 
     @SneakyThrows
     public void disconnect(){
-        this.interrupt();
-        this.stop();
-        sendPacketNoCallback(Packets.SERVER_CLOSE.getPacket());
-        this.socket.close();
+        if(!this.socket.isClosed()){
+            sendPacketNoCallback(Packets.SERVER_CLOSE.getPacket());
+            this.socket.close();
+        }
         ClientHandler.channels.remove(this);
         new JEvent(new ClientDisconnectedEvent(this)).callEvent();
     }
 
     @SneakyThrows
     public Packet sendPacket(Packet packet){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             this.objectOutputStream.writeObject(packet);
             this.objectOutputStream.flush();
             return read();
@@ -91,7 +102,7 @@ public class Channel extends Thread implements Serializable {
 
     @SneakyThrows
     public void sendPacketNoCallback(Packet packet){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             this.objectOutputStream.writeObject(packet);
             this.objectOutputStream.flush();
             return;
@@ -102,7 +113,7 @@ public class Channel extends Thread implements Serializable {
 
     @SneakyThrows
     public Packet read(){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             return (Packet) this.objectInputStream.readObject();
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
@@ -110,7 +121,7 @@ public class Channel extends Thread implements Serializable {
     }
     @SneakyThrows
     public Packet sendPacket(Packets packets){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             this.objectOutputStream.writeObject(packets.getPacket());
             this.objectOutputStream.flush();
             return read();

@@ -1,5 +1,7 @@
 package com.github.sebyplays.jnetlite.utils.net.client;
 
+import com.github.sebyplays.hashhandler.api.HashHandler;
+import com.github.sebyplays.hashhandler.api.HashType;
 import com.github.sebyplays.jevent.api.JEvent;
 import com.github.sebyplays.jnetlite.events.client.ClientPacketReceivedEvent;
 import com.github.sebyplays.jnetlite.utils.Port;
@@ -22,11 +24,21 @@ public class JNetClient {
     private Port port;
     @Getter private Socket socket;
     private Thread thread;
+    @Getter private boolean authenticated = false;
+    @Getter private String auth;
     @Getter private ObjectOutputStream objectOutputStream;
     @Getter private ObjectInputStream objectInputStream;
 
     @SneakyThrows
     public JNetClient(String hostname, Port port){
+        this.hostname = hostname;
+        this.port = port;
+        LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Client initialized", true, false, true, true);
+    }
+
+    @SneakyThrows
+    public JNetClient(String hostname, Port port, String auth){
+        this.auth = new HashHandler(HashType.SHA_1).hash(auth, false);
         this.hostname = hostname;
         this.port = port;
         LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Client initialized", true, false, true, true);
@@ -43,8 +55,18 @@ public class JNetClient {
                 objectOutputStream = new ObjectOutputStream(socket.getOutputStream());
                 LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Connection engaged, waiting for input!", true, false, true, true);
                 Packet packet;
-                while ((packet = read()) != null){
-                    if (Packets.SERVER_CLOSE.getPacket().getAdditional().equals(packet.getAdditional())) { terminate(); destroy(); return; }
+                LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Awaiting authentication..", true, false, true ,true);
+                if(!auth.equals(null) && !authenticated){
+                    if(sendPacket(new Packet("auth", auth)).getAdditional().equals(auth) ){
+                        authenticated = true;
+                        LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Authenticated!", true, false, true ,true);
+                    } else {
+                        LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Authentication not successful, closing!", true, false, true ,true);
+                        socket.close();
+                    }
+                }
+                while (!socket.isClosed() && (packet = read()) != null){
+                    if (Packets.SERVER_CLOSE.getPacket().getAdditional().equals(packet.getAdditional())) { break; }
                     new JEvent(new ClientPacketReceivedEvent(packet)).callEvent();
                 }
                 terminate();
@@ -56,11 +78,10 @@ public class JNetClient {
 
     @SneakyThrows
     public void terminate(){
-        sendPacketNoCallback(Packets.CLIENT_CLOSE.getPacket());
-        this.thread.stop();
-        this.thread.suspend();
-        this.thread.interrupt();
-        this.socket.close();
+        if(!this.socket.isClosed()){
+            sendPacketNoCallback(Packets.CLIENT_CLOSE.getPacket());
+            this.socket.close();
+        }
         this.objectOutputStream.close();
         this.objectInputStream.close();
         LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Connection disengaged!", true, false, true, true);
@@ -68,7 +89,7 @@ public class JNetClient {
 
     @SneakyThrows
     public Packet sendPacket(Packet packet){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             this.objectOutputStream.writeObject(packet);
             this.objectOutputStream.flush();
             return read();
@@ -79,7 +100,7 @@ public class JNetClient {
 
     @SneakyThrows
     public void sendPacketNoCallback(Packet packet){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             this.objectOutputStream.writeObject(packet);
             this.objectOutputStream.flush();
             return;
@@ -90,7 +111,7 @@ public class JNetClient {
 
     @SneakyThrows
     public Packet read(){
-        if(socket.isConnected()){
+        if(!socket.isClosed()){
             return (Packet) this.objectInputStream.readObject();
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot read information, if not connected!", true, false, true, true);

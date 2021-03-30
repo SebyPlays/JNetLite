@@ -9,7 +9,7 @@ public class ClientHandler {
 
     public static ArrayList<Channel> channels = new ArrayList<>();
 
-
+    //get a channel by its name
     public static Channel getChannel(String channelName){
         for (Channel channel : channels){
             if(channel.getChannelName().equals(channelName)){
@@ -18,7 +18,7 @@ public class ClientHandler {
         }
         return null;
     }
-
+    //get a channel by its UUID
     public static Channel getChannel(UUID uuid){
         for (Channel channel : channels){
             if(channel.getUuid().equals(uuid)){
