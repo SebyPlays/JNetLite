@@ -13,7 +13,6 @@ public class ServerPacketReceivedEvent extends Event {
     public ServerPacketReceivedEvent(Channel channel, Packet packet){
         this.packet = packet;
         this.channel = channel;
-        super.setEventName(this.getClass().getName());
     }
 
     public ServerPacketReceivedEvent(){

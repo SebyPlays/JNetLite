@@ -29,11 +29,13 @@ public class Channel extends Thread implements Serializable {
     @Getter transient private ObjectOutputStream objectOutputStream;
     @Getter transient private ObjectInputStream objectInputStream;
     @Getter private int clientId;
+    @Getter private String auth;
 
     @SneakyThrows
-    public Channel(Socket socket, UUID uuid, int id){
+    public Channel(Socket socket, UUID uuid, int id, String auth){
         this.uuid = uuid;
         this.clientId = id;
+        this.auth = auth;
         this.channelName = "ch-" + getUuid();
         this.setName(channelName);
         this.socket = socket;
@@ -55,10 +57,10 @@ public class Channel extends Thread implements Serializable {
         LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Channel " + getName() + " starting..", true, false, true ,true);
         Packet packet = null;
         LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Channel " + getName() + " awaiting authentication..", true, false, true ,true);
-        if(!JNetServer.getAuth().equals(null) && !isAuthenticated){
-            if(read().getAdditional().equals(JNetServer.getAuth())){
+        if( getAuth() != null && !getAuth().equals(null) && !isAuthenticated){
+            if(read().getAdditional().equals(getAuth())){
                 isAuthenticated = true;
-                sendPacketNoCallback(new Packet("auth", JNetServer.getAuth()));
+                sendPacketNoCallback(new Packet("auth", getAuth()));
                 LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Authentication successful!", true, false, true ,true);
             } else {
                 LogManager.getLogManager("JNetServer").log(LogType.NORMAL, "Authentication not successful! closing!", true, false, true ,true);
@@ -119,6 +121,7 @@ public class Channel extends Thread implements Serializable {
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return Packets.ERROR.getPacket();
     }
+
     @SneakyThrows
     public Packet sendPacket(Packets packets){
         if(!socket.isClosed()){
@@ -133,7 +136,4 @@ public class Channel extends Thread implements Serializable {
     public Channel getChannelInstance(){
         return this;
     }
-
-
-
 }

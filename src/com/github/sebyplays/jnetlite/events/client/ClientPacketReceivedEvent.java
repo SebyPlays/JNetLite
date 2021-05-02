@@ -10,7 +10,6 @@ public class ClientPacketReceivedEvent extends Event {
 
     public ClientPacketReceivedEvent(Packet packet){
         this.packet = packet;
-        super.setEventName(this.getClass().getName());
     }
 
     public ClientPacketReceivedEvent(){

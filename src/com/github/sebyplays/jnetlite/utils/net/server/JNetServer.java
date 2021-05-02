@@ -17,13 +17,15 @@ import lombok.SneakyThrows;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class JNetServer {
 
     @Getter private Port port;
     @Getter private ServerSocket serverSocket = null;
     @Getter private Socket socket = null;
-    @Getter private static String auth;
+    @Getter private String auth;
 
     @SneakyThrows
     public JNetServer(Port port){
@@ -50,7 +52,7 @@ public class JNetServer {
                 while(!serverSocket.isClosed()){
                     UUID uuid = UUID.randomUUID();
                     int id = 0;
-                    ClientHandler.channels.add(new Channel(serverSocket.accept(), uuid, id++));
+                    ClientHandler.channels.add(new Channel(serverSocket.accept(), uuid, id++, auth));
                     LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " connected!", true, false, true, true);
                     LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " assigned a channel.", true, false, true, true);
                     ClientHandler.getChannel(uuid).start();
@@ -64,8 +66,11 @@ public class JNetServer {
 
 
     @SneakyThrows
-    public void stop(){
+    public synchronized void stop(){
         broadcast(Packets.SERVER_CLOSE.getPacket());
+        for(Channel channel : ClientHandler.channels){
+            channel.disconnect();
+        }
         serverSocket.close();
     }
 

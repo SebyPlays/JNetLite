@@ -10,7 +10,6 @@ public class ClientDisconnectedEvent extends Event {
 
     public ClientDisconnectedEvent(Channel channel){
         this.channel = channel;
-        super.setEventName(this.getClass().getName());
     }
 
     public ClientDisconnectedEvent(){

@@ -14,7 +14,6 @@ public class ClientConnectedEvent extends Event {
 
     public ClientConnectedEvent(Channel channel){
         this.channel = channel;
-        super.setEventName("ClientConnectedEvent");
     }
 
 }

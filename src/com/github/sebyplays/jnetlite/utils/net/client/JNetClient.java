@@ -56,7 +56,7 @@ public class JNetClient {
                 LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Connection engaged, waiting for input!", true, false, true, true);
                 Packet packet;
                 LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Awaiting authentication..", true, false, true ,true);
-                if(!auth.equals(null) && !authenticated){
+                if(auth != null && !auth.equals(null) && !authenticated){
                     if(sendPacket(new Packet("auth", auth)).getAdditional().equals(auth) ){
                         authenticated = true;
                         LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Authenticated!", true, false, true ,true);
@@ -96,6 +96,10 @@ public class JNetClient {
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return Packets.ERROR.getPacket();
+    }
+
+    public void sendRawData(byte[] bytes){
+
     }
 
     @SneakyThrows
