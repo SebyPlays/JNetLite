@@ -1,18 +1,19 @@
 package com.github.sebyplays.jnetlite.utils.net;
 
 import com.github.sebyplays.jevent.api.JEvent;
-import com.github.sebyplays.jnetlite.events.client.ClientDisconnectedEvent;
+import com.github.sebyplays.jnetlite.events.server.ClientDisconnectedEvent;
+import com.github.sebyplays.jnetlite.events.server.ServerPacketPreSentEvent;
 import com.github.sebyplays.jnetlite.events.server.ServerPacketReceivedEvent;
 import com.github.sebyplays.jnetlite.utils.ClientHandler;
 import com.github.sebyplays.jnetlite.utils.io.Packet;
 import com.github.sebyplays.jnetlite.utils.io.Packets;
-import com.github.sebyplays.jnetlite.utils.net.server.JNetServer;
 import com.github.sebyplays.logmanager.api.LogManager;
 import com.github.sebyplays.logmanager.api.LogType;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -74,7 +75,6 @@ public class Channel extends Thread implements Serializable {
             new JEvent(new ServerPacketReceivedEvent(getChannelInstance(), packet)).callEvent();
         }
         disconnect();
-        new JEvent(new ClientDisconnectedEvent(getChannelInstance())).callEvent();
     }
 
     public boolean isConnected(){
@@ -94,9 +94,11 @@ public class Channel extends Thread implements Serializable {
     @SneakyThrows
     public Packet sendPacket(Packet packet){
         if(!socket.isClosed()){
-            this.objectOutputStream.writeObject(packet);
-            this.objectOutputStream.flush();
-            return read();
+            if(!new JEvent(new ServerPacketPreSentEvent(packet, true)).callEvent().getEvent().isCancelled()){
+                this.objectOutputStream.writeObject(packet);
+                this.objectOutputStream.flush();
+                return read();
+            }
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return Packets.ERROR.getPacket();
@@ -105,8 +107,13 @@ public class Channel extends Thread implements Serializable {
     @SneakyThrows
     public void sendPacketNoCallback(Packet packet){
         if(!socket.isClosed()){
-            this.objectOutputStream.writeObject(packet);
-            this.objectOutputStream.flush();
+            if(!new JEvent(new ServerPacketPreSentEvent(packet, false)).callEvent().getEvent().isCancelled()){
+                try {
+                    this.objectOutputStream.writeObject(packet);
+                    this.objectOutputStream.flush();
+                } catch (IOException e) {
+                }
+            }
             return;
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
@@ -117,17 +124,6 @@ public class Channel extends Thread implements Serializable {
     public Packet read(){
         if(!socket.isClosed()){
             return (Packet) this.objectInputStream.readObject();
-        }
-        LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
-        return Packets.ERROR.getPacket();
-    }
-
-    @SneakyThrows
-    public Packet sendPacket(Packets packets){
-        if(!socket.isClosed()){
-            this.objectOutputStream.writeObject(packets.getPacket());
-            this.objectOutputStream.flush();
-            return read();
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return Packets.ERROR.getPacket();

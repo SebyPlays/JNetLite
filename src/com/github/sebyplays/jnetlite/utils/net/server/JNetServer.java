@@ -3,7 +3,7 @@ package com.github.sebyplays.jnetlite.utils.net.server;
 import com.github.sebyplays.hashhandler.api.HashHandler;
 import com.github.sebyplays.hashhandler.api.HashType;
 import com.github.sebyplays.jevent.api.JEvent;
-import com.github.sebyplays.jnetlite.events.client.ClientConnectedEvent;
+import com.github.sebyplays.jnetlite.events.server.ClientConnectedEvent;
 import com.github.sebyplays.jnetlite.utils.ClientHandler;
 import com.github.sebyplays.jnetlite.utils.Port;
 import com.github.sebyplays.jnetlite.utils.io.Packet;
@@ -17,8 +17,6 @@ import lombok.SneakyThrows;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class JNetServer {
 
@@ -53,12 +51,15 @@ public class JNetServer {
                     UUID uuid = UUID.randomUUID();
                     int id = 0;
                     ClientHandler.channels.add(new Channel(serverSocket.accept(), uuid, id++, auth));
-                    LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " connected!", true, false, true, true);
+                    LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " connected from: " + ClientHandler.getChannel(uuid).getSocket().getRemoteSocketAddress() + "!", true, false, true, true);
                     LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " assigned a channel.", true, false, true, true);
                     ClientHandler.getChannel(uuid).start();
                     LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " Channel Thread started!", true, false, true, true);
                     LogManager.getLogManager("JNetServer").log(LogType.INFORMATION, "Client: ch-" + uuid + " Channel ready for communication!", true, false, true, true);
-                    new JEvent(new ClientConnectedEvent(ClientHandler.getChannel(uuid))).callEvent();
+                    if(new JEvent(new ClientConnectedEvent(ClientHandler.getChannel(uuid))).callEvent().getEvent().isCancelled()){
+                       ClientHandler.getChannel(uuid).sendPacketNoCallback(Packets.ERROR_CONNECTION_CANCELLED.getPacket());
+                       ClientHandler.getChannel(uuid).disconnect();
+                    }
                 }
             }
         }.start();

@@ -3,6 +3,7 @@ package com.github.sebyplays.jnetlite.utils.net.client;
 import com.github.sebyplays.hashhandler.api.HashHandler;
 import com.github.sebyplays.hashhandler.api.HashType;
 import com.github.sebyplays.jevent.api.JEvent;
+import com.github.sebyplays.jnetlite.events.client.ClientPacketPreSentEvent;
 import com.github.sebyplays.jnetlite.events.client.ClientPacketReceivedEvent;
 import com.github.sebyplays.jnetlite.utils.Port;
 import com.github.sebyplays.jnetlite.utils.io.Packet;
@@ -57,7 +58,7 @@ public class JNetClient {
                 Packet packet;
                 LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Awaiting authentication..", true, false, true ,true);
                 if(auth != null && !auth.equals(null) && !authenticated){
-                    if(sendPacket(new Packet("auth", auth)).getAdditional().equals(auth) ){
+                    if(sendPacket(new Packet("auth", auth)).getAdditional().equals(auth)){
                         authenticated = true;
                         LogManager.getLogManager("JNetClient").log(LogType.NORMAL, "Authenticated!", true, false, true ,true);
                     } else {
@@ -90,9 +91,11 @@ public class JNetClient {
     @SneakyThrows
     public Packet sendPacket(Packet packet){
         if(!socket.isClosed()){
-            this.objectOutputStream.writeObject(packet);
-            this.objectOutputStream.flush();
-            return read();
+            if(!new JEvent(new ClientPacketPreSentEvent(packet, true)).callEvent().getEvent().isCancelled()){
+                this.objectOutputStream.writeObject(packet);
+                this.objectOutputStream.flush();
+                return read();
+            }
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return Packets.ERROR.getPacket();
@@ -105,9 +108,11 @@ public class JNetClient {
     @SneakyThrows
     public void sendPacketNoCallback(Packet packet){
         if(!socket.isClosed()){
-            this.objectOutputStream.writeObject(packet);
-            this.objectOutputStream.flush();
-            return;
+            if(!new JEvent(new ClientPacketPreSentEvent(packet, false)).callEvent().getEvent().isCancelled()){
+                this.objectOutputStream.writeObject(packet);
+                this.objectOutputStream.flush();
+                return;
+            }
         }
         LogManager.getLogManager("JNetServer").log(LogType.ERROR, "Cannot send information, if not connected!", true, false, true, true);
         return;
